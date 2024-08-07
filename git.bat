@@ -21,7 +21,7 @@ echo       ^|  \/  ^|                       / ____^|         (_)     ^| ^|
 echo       ^| \  / ^| __ _  ___ _ __ ___   ^| (___   ___ _ __ _ _ __ ^| ^|_ 
 echo       ^| ^|\/^| ^|/ _` ^|/ __^| '__/ _ \   \___ \ / __^| '__^| ^| '_ \^| __^|
 echo       ^| ^|  ^| ^| (_^| ^| (__^| ^| ^| (_) ^|  ____) ^| (__^| ^|  ^| ^| ^|_) ^| ^|_ 
-echo       ^|_^|  ^|_^|\__,_^|\___^|_^|  \___/  ^|_____/ \___^|_^|  ^|_^| .__/ \__^|   Auto_Git v 2.7.1
+echo       ^|_^|  ^|_^|\__,_^|\___^|_^|  \___/  ^|_____/ \___^|_^|  ^|_^| .__/ \__^|   Auto_Git v 2.8.0
 echo                                                        ^|_^|        
 echo          ^+---------------------------------------------------^+
 echo          ^|                   使 用 说 明                     ^|
@@ -32,6 +32,8 @@ echo          ^| 4. (u*序号*) 更新 u 后面序号的项目.               ^|
 echo          ^| 5. (ua) 更新全部项目.                             ^|
 echo          ^| 6. (m 序号1 序号2 ...) 更新指定的多个项目.        ^|
 echo          ^| 7. (sql*序号*) 还原数据库.                        ^|
+echo          ^| 8. (s 序号1 序号2 ...) 简单更新指定的多个项目.    ^|
+echo          ^| 9. (sa) 简单更新全部项目.                         ^|
 echo          ^+---------------------------------------------------^+
 
 set counter=1
@@ -88,6 +90,10 @@ if "!choice!"=="ua" (
     echo !choice!>"%LAST_CHOICE_FILE%"
     call :updateAllProjects
     goto end_script
+) else if "!choice!"=="sa" (
+    echo !choice!>"%LAST_CHOICE_FILE%"
+    call :simpleUpdateAllProjects
+    goto end_script
 ) else if "!choice:~0,1!"=="u" (
     set updateOnly=1
     set choiceNumber=!choice:~1!
@@ -100,6 +106,10 @@ if "!choice!"=="ua" (
     set choiceNumber=!choice:~3!
     echo !choice!>"%LAST_CHOICE_FILE%"
     call :restoreDatabase !choiceNumber!
+    goto end_script
+) else if "!choice:~0,1!"=="s" (
+    echo !choice!>"%LAST_CHOICE_FILE%"
+    call :simpleUpdateMultipleProjects !choice:~2!
     goto end_script
 ) else (
     for /f "tokens=1,* delims=-" %%a in ("!choice!") do (
@@ -398,6 +408,74 @@ git pull origin master > nul 2>&1
 popd
 
 echo ⌈%projectName%⌋ 更新完成
+echo ------------------------------------------------------------------------------------------------------------------------
+exit /b
+
+:simpleUpdateAllProjects
+echo 正在简单更新所有项目...
+for /l %%i in (1,1,%counter%) do (
+    if defined projects[%%i] (
+        call :simpleUpdateProject %%i
+    )
+)
+echo 所有项目简单更新完成!
+goto end_script
+
+:simpleUpdateMultipleProjects
+REM 正在简单更新多个项目...
+:simpleUpdateMultipleLoop
+if "%1"=="" goto :eof
+call :simpleUpdateProject %1
+shift
+goto simpleUpdateMultipleLoop
+
+:simpleUpdateProject
+set repoPath=!projects[%1]!
+for %%I in ("!projects[%1]!") do set projectName=%%~nxI
+echo 正在简单更新: ⌈%projectName%⌋...
+
+pushd "%repoPath%"
+if not exist .git (
+    echo 错误: ⌈%projectName%⌋ 不是一个有效的 Git 仓库。
+    echo 请检查该目录是否包含 .git 文件夹，或者是否是一个 Git 仓库的根目录。
+    echo 跳过此项目的更新。
+    echo.
+    popd
+    exit /b
+)
+
+REM 检查是否存在dev和deploy分支
+git rev-parse --verify dev >nul 2>&1
+set dev_exists=%errorlevel%
+git rev-parse --verify deploy >nul 2>&1
+set deploy_exists=%errorlevel%
+
+if %dev_exists% neq 0 ( 
+    if %deploy_exists% neq 0 (
+        REM 本地不存在dev和deploy分支，只从远程master拉取到本地master
+        git checkout master >nul 2>&1
+        git pull origin master >nul 2>&1
+        popd
+        echo ⌈%projectName%⌋ 简单更新完成
+        echo ------------------------------------------------------------------------------------------------------------------------
+        exit /b
+    )
+)
+
+REM 切换到dev分支并拉取代码
+git checkout dev > nul 2>&1
+git pull origin dev > nul 2>&1
+
+REM 切换到deploy分支并拉取代码
+git checkout deploy > nul 2>&1
+git pull origin deploy > nul 2>&1
+
+REM 切换回dev分支
+git checkout dev > nul 2>&1
+
+popd
+
+echo ⌈%projectName%⌋ 简单更新完成
 echo ------------------------------------------------------------------------------------------------------------------------
 exit /b
 
