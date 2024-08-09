@@ -2,19 +2,27 @@
 @>nul chcp 65001
 setlocal enabledelayedexpansion
 
-REM 配置为自己路径(git项目)
+:: 配置为自己路径(git项目)
 set "PROJECT_ROOT=D:\cvsHome_NR\system"
 
-REM 配置为自己的数据库文件压缩包下载路径
+:: 配置为自己的数据库文件压缩包下载路径
 set "ZDOWNLOAD_PATH=D:\zdownload"
 
-REM 配置自己的MySQL账号和密码
+:: 配置自己的MySQL账号和密码
 set "MYSQL_USER=root"
 set "MYSQL_PASSWORD=123456"
 
 set "SCRIPT_PATH=%~f0"
 set "LAST_CHOICE_FILE=%TEMP%\last_git_choice.txt"
-REM 项目根目录: "%PROJECT_ROOT%\"
+:: 项目根目录: "%PROJECT_ROOT%\"
+
+:: 检查 Git 是否已安装
+where git >nul 2>nul
+if %errorlevel% neq 0 (
+    echo Git 未安装或不在系统路径中。请安装 Git 并确保它在系统路径中，然后再运行此脚本。
+    pause
+    exit /b 1
+)
 
 echo        __  __                         _____           _       _   
 echo       ^|  \/  ^|                       / ____^|         (_)     ^| ^|  
@@ -40,7 +48,7 @@ set counter=1
 set lineCounter=0
 set maxWidth=0
 
-REM 首先计算最长项目名称的长度
+:: 首先计算最长项目名称的长度
 for /d %%d in ("%PROJECT_ROOT%\*") do (
     set "projectName=!counter!.%%~nxd"
     call :strLen projectName strlen
@@ -50,7 +58,7 @@ for /d %%d in ("%PROJECT_ROOT%\*") do (
 set /a maxWidth+=0
 set counter=1
 
-REM 然后显示对齐的项目列表
+:: 然后显示对齐的项目列表
 for /d %%d in ("%PROJECT_ROOT%\*") do (
     set "projects[!counter!]=%%d"
     set "projectName=!counter!.%%~nxd"
@@ -81,7 +89,7 @@ if exist "%LAST_CHOICE_FILE%" (
     set /p last_choice=<"%LAST_CHOICE_FILE%"
     echo 直接回车使用上次选择的项目或操作: !last_choice! 
 )
-set /p choice="请输入要操作的 Git 项目序号或操作："
+set /p choice="请输入要操作的 Git 项目序号或指令："
 if "!choice!"=="" if not "!last_choice!"=="" set "choice=!last_choice!"
 
 :execute_choice
@@ -123,7 +131,7 @@ if not defined projects[!choiceNumber!] (
 )
 if not defined commitMessage set commitMessage=调整并优化页面
 
-REM 保存当前选择
+:: 保存当前选择
 echo !choice!>"%LAST_CHOICE_FILE%"
 
 call :updateProject !choiceNumber!
@@ -138,9 +146,9 @@ if %hasChanges% == 0 (
     goto end_script
 )
 
-REM 正在提交并推送 dev 分支暂存文件到 origin/dev...
+:: 正在提交并推送 dev 分支暂存文件到 origin/dev...
 pushd "!projects[%choiceNumber%]!"
-REM 检查是否存在dev和deploy分支
+:: 检查是否存在dev和deploy分支
 git rev-parse --verify dev >nul 2>&1
 set dev_exists=%errorlevel%
 git rev-parse --verify deploy >nul 2>&1
@@ -148,10 +156,10 @@ set deploy_exists=%errorlevel%
 
 if %dev_exists% neq 0 ( 
     if %deploy_exists% neq 0 (
-        REM 本地不存在dev和deploy分支，只更新master分支
+        :: 本地不存在dev和deploy分支，只更新master分支
         git checkout master >nul 2>&1
         git pull origin master >nul 2>&1
-        REM 只提交已暂存的文件
+        :: 只提交已暂存的文件
         git commit -m "%commitMessage%" > nul 2>&1
         git push origin master > nul 2>&1
         for /f %%i in ('git diff --name-only HEAD@{1} HEAD ^| find /c /v ""') do set "updatedFiles=%%i"
@@ -166,21 +174,21 @@ git commit -m "%commitMessage%" > nul 2>&1
 git push origin dev > nul 2>&1
 for /f %%i in ('git diff --name-only HEAD@{1} HEAD ^| find /c /v ""') do set "updatedFiles=%%i"
 echo 提交/推送 !updatedFiles! 个文件.
-REM 推送当前分支到远程 master 分支...
+:: 推送当前分支到远程 master 分支...
 git push origin dev:master > nul 2>&1
 
-REM 正在切换到 deploy 分支...
+:: 正在切换到 deploy 分支...
 git checkout deploy > nul 2>&1
 
-REM 正在从 origin/dev 拉取代码到本地 deploy 分支...
+:: 正在从 origin/dev 拉取代码到本地 deploy 分支...
 git pull origin dev > nul 2>&1
-REM 正在推送到 origin/deploy 分支和 origin/dev 分支...
+:: 正在推送到 origin/deploy 分支和 origin/dev 分支...
 git push origin deploy dev > nul 2>&1
 
-REM 正在切换回 dev 分支...
+:: 正在切换回 dev 分支...
 git checkout dev > nul 2>&1
 
-REM 正在拉取 origin/master 到本地 dev 分支...
+:: 正在拉取 origin/master 到本地 dev 分支...
 git pull origin master > nul 2>&1
 
 popd
@@ -212,7 +220,7 @@ if %errorlevel% neq 0 (
     echo 警告: %ZDOWNLOAD_PATH% 目录中没有找到ZIP文件,跳过解压和数据库还原步骤...
     goto :skip_unzip_restore
 )
-REM 解压所有ZIP文件
+:: 解压所有ZIP文件
 for %%F in ("%ZDOWNLOAD_PATH%\*.zip") do (
     echo 正在解压文件 %%F...
     powershell -command "Expand-Archive -Path '%%F' -DestinationPath '%ZDOWNLOAD_PATH%' -Force"
@@ -220,7 +228,7 @@ for %%F in ("%ZDOWNLOAD_PATH%\*.zip") do (
 )
 :skip_unzip_restore
 
-REM 执行SQL文件
+:: 执行SQL文件
 for %%F in ("%ZDOWNLOAD_PATH%\*.sql") do (
     echo 正在还原数据库 %%F...
     mysql -u %MYSQL_USER% -p%MYSQL_PASSWORD% %projectName% --force < "%%F" > nul 2>&1
@@ -229,18 +237,18 @@ for %%F in ("%ZDOWNLOAD_PATH%\*.sql") do (
 	del /q "%ZDOWNLOAD_PATH%\*.sql"
     ) else (
         echo √还原成功...
-	REM 清理sql文件
+	:: 清理sql文件
 	del /q "%ZDOWNLOAD_PATH%\*.zip"
 	del /q "%ZDOWNLOAD_PATH%\*.sql"
     )
 )
-REM 执行额外的更新SQL
+:: 执行额外的更新SQL
 mysql -u %MYSQL_USER% -p%MYSQL_PASSWORD% %projectName% -e "UPDATE dr_sys_user set password='6f5fc701b7b3cd30fea52c8a12405337', encrypt='drsoft' where id='1'" > nul 2>&1
 echo admin密码已重置...
 goto end_script
 
 :updateMultipleProjects
-REM 正在更新多个项目...
+:: 正在更新多个项目...
 :updateMultipleLoop
 if "%1"=="" goto :eof
 call :updateProject %1
@@ -262,7 +270,7 @@ if not exist .git (
     exit /b
 )
 
-REM 检查是否存在dev和deploy分支
+:: 检查是否存在dev和deploy分支
 git rev-parse --verify dev >nul 2>&1
 set dev_exists=%errorlevel%
 git rev-parse --verify deploy >nul 2>&1
@@ -270,7 +278,7 @@ set deploy_exists=%errorlevel%
 
 if %dev_exists% neq 0 ( 
     if %deploy_exists% neq 0 (
-        REM 本地不存在dev和deploy分支，只从远程master拉取到本地master
+        :: 本地不存在dev和deploy分支，只从远程master拉取到本地master
         git checkout master >nul 2>&1
         git pull origin master >nul 2>&1
         popd
@@ -288,9 +296,9 @@ if /i not "%currentBranch%"=="dev" (
 git pull origin dev > nul 2>&1
 if %errorlevel% neq 0 (
     echo ⌈dev⌋检测到冲突...
-    REM 尝试自动合并
+    :: 尝试自动合并
     git merge -s recursive -X theirs origin/dev > nul 2>&1
-    REM 检查是否还有冲突
+    :: 检查是否还有冲突
     git diff --name-only --diff-filter=U > conflicts.txt
     if %errorlevel% neq 0 (
         echo 自动合并失败，以下文件仍存在冲突:
@@ -306,7 +314,7 @@ if %errorlevel% neq 0 (
                 git add "%%i"
                 echo 已接受远程版本: %%i
             )
-            git commit -m "Resolved conflicts by accepting remote changes" > nul 2>&1
+            git commit -m "Resolved conflicts by accepting ::ote changes" > nul 2>&1
             echo 冲突已解决，正在继续拉取...
             git pull origin dev
         ) else if "!choice!"=="2" (
@@ -329,23 +337,23 @@ if %errorlevel% neq 0 (
 )
 git pull origin master > nul 2>&1
 
-REM 计算并显示更新的文件数量
+:: 计算并显示更新的文件数量
 for /f %%i in ('git diff --name-only HEAD@{1} HEAD ^| find /c /v ""') do set "updatedFiles=%%i"
 if %updatedFiles% gtr 0 (
-    REM git diff --name-only HEAD@{1} HEAD
+    :: git diff --name-only HEAD@{1} HEAD
     echo 更新内容为: 
     git log -1 --pretty=format:"%%s%%n%%n%%b"
     echo 拉取到 !updatedFiles! 个文件...
     git push origin dev > nul 2>&1
 )
 
-REM 从master分支拉取
+:: 从master分支拉取
 git pull origin master > nul 2>&1
 if %errorlevel% neq 0 (
     echo 从⌈origin/master⌋拉取时检测到冲突
-    REM 尝试自动合并
+    :: 尝试自动合并
     git merge -s recursive -X theirs origin/master > nul 2>&1
-    REM 检查是否还有冲突
+    :: 检查是否还有冲突
     git diff --name-only --diff-filter=U > conflicts.txt
     if %errorlevel% neq 0 (
         echo 自动合并失败，以下文件仍存在冲突:
@@ -361,7 +369,7 @@ if %errorlevel% neq 0 (
                 git add "%%i"
                 echo 已接受远程master版本: %%i
             )
-            git commit -m "Resolved conflicts by accepting remote master changes" > nul 2>&1
+            git commit -m "Resolved conflicts by accepting ::ote master changes" > nul 2>&1
             echo 冲突已解决，正在推送到远程dev分支...
             git push origin dev > nul 2>&1
             if %errorlevel% neq 0 (
@@ -392,17 +400,17 @@ if %errorlevel% neq 0 (
     git push origin dev > nul 2>&1
 )
 
-REM 正在切换到⌈deploy⌋分支...
+:: 正在切换到⌈deploy⌋分支...
 git checkout deploy > nul 2>&1
-REM 正在拉取 origin/dev 到本地 deploy 分支...
+:: 正在拉取 origin/dev 到本地 deploy 分支...
 git pull origin dev > nul 2>&1
-REM 正在检查是否有需要推送的内容...
+:: 正在检查是否有需要推送的内容...
 git diff --quiet HEAD origin/deploy || git push origin deploy > nul 2>&1
-REM 正在切换回⌈dev⌋分支...
+:: 正在切换回⌈dev⌋分支...
 git checkout dev > nul 2>&1
-REM 正在拉取 origin/deploy 到本地 dev 分支...
+:: 正在拉取 origin/deploy 到本地 dev 分支...
 git pull origin deploy > nul 2>&1
-REM 正在拉取 origin/master 到本地 dev 分支...
+:: 正在拉取 origin/master 到本地 dev 分支...
 git pull origin master > nul 2>&1
 
 popd
@@ -422,7 +430,7 @@ echo 所有项目简单更新完成!
 goto end_script
 
 :simpleUpdateMultipleProjects
-REM 正在简单更新多个项目...
+:: 正在简单更新多个项目...
 :simpleUpdateMultipleLoop
 if "%1"=="" goto :eof
 call :simpleUpdateProject %1
@@ -444,7 +452,7 @@ if not exist .git (
     exit /b
 )
 
-REM 检查是否存在dev和deploy分支
+:: 检查是否存在dev和deploy分支
 git rev-parse --verify dev >nul 2>&1
 set dev_exists=%errorlevel%
 git rev-parse --verify deploy >nul 2>&1
@@ -452,7 +460,7 @@ set deploy_exists=%errorlevel%
 
 if %dev_exists% neq 0 ( 
     if %deploy_exists% neq 0 (
-        REM 本地不存在dev和deploy分支，只从远程master拉取到本地master
+        :: 本地不存在dev和deploy分支，只从远程master拉取到本地master
         git checkout master >nul 2>&1
         git pull origin master >nul 2>&1
         popd
@@ -462,15 +470,15 @@ if %dev_exists% neq 0 (
     )
 )
 
-REM 切换到dev分支并拉取代码
+:: 切换到dev分支并拉取代码
 git checkout dev > nul 2>&1
 git pull origin dev > nul 2>&1
 
-REM 切换到deploy分支并拉取代码
+:: 切换到deploy分支并拉取代码
 git checkout deploy > nul 2>&1
 git pull origin deploy > nul 2>&1
 
-REM 切换回dev分支
+:: 切换回dev分支
 git checkout dev > nul 2>&1
 
 popd

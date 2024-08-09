@@ -5,10 +5,10 @@ setlocal enabledelayedexpansion
 :: 设置目标路径
 set "TARGET_PATH=D:\cvsHome_NR\system"
 
-REM 配置为自己的数据库文件压缩包下载路径
+:: 配置为自己的数据库文件压缩包下载路径
 set "ZDOWNLOAD_PATH=D:\zdownload"
 
-REM 配置自己的MySQL账号和密码
+:: 配置自己的MySQL账号和密码
 set "MYSQL_USER=root"
 set "MYSQL_PASSWORD=123456"
 
@@ -51,7 +51,7 @@ if %errorlevel% neq 0 (
     goto :skip_unzip_restore
 )
 
-REM 解压所有ZIP文件
+:: 解压所有ZIP文件
 for %%F in ("%ZDOWNLOAD_PATH%\*.zip") do (
     echo 正在解压文件 %%F...
     powershell -command "Expand-Archive -Path '%%F' -DestinationPath '%ZDOWNLOAD_PATH%' -Force"
@@ -59,17 +59,17 @@ for %%F in ("%ZDOWNLOAD_PATH%\*.zip") do (
 )
 del /q "%ZDOWNLOAD_PATH%\*.zip"
 
-REM 执行SQL文件
+:: 执行SQL文件
 for %%F in ("%ZDOWNLOAD_PATH%\*.sql") do (
     echo 正在还原数据库 %%F...
     mysql -u %MYSQL_USER% -p%MYSQL_PASSWORD% %REPO_NAME% < "%%F" > nul 2>&1
     echo √还原成功...
 )
 
-REM 清理sql文件
+:: 清理sql文件
 del /q "%ZDOWNLOAD_PATH%\*.sql"
 
-REM 执行额外的更新SQL
+:: 执行额外的更新SQL
 mysql -u %MYSQL_USER% -p%MYSQL_PASSWORD% %REPO_NAME% -e "UPDATE dr_sys_user set password='6f5fc701b7b3cd30fea52c8a12405337', encrypt='drsoft' where id='1'" > nul 2>&1
 echo admin密码已重置...
 
@@ -96,27 +96,27 @@ cd %REPO_NAME%
 
 echo 正在增加本地^(dev deploy^)分支
 :: 检出 dev 分支
-REM 正在检出 dev 分支...
+:: 正在检出 dev 分支...
 git checkout -b dev origin/dev > nul 2>&1
 :: 检出 deploy 分支
-REM 正在检出 deploy 分支...
+:: 正在检出 deploy 分支...
 git checkout -b deploy origin/deploy > nul 2>&1
-REM 切换回 dev 分支
+:: 切换回 dev 分支
 git checkout dev > nul 2>&1
-REM 删除本地 master 分支
+:: 删除本地 master 分支
 git branch -d master > nul 2>&1
-REM 正在拉取 origin/master 到本地 dev 分支...
+:: 正在拉取 origin/master 到本地 dev 分支...
 git pull origin master > nul 2>&1
 git push origin dev > nul 2>&1
-REM 正在切换到 deploy 分支...
+:: 正在切换到 deploy 分支...
 git checkout deploy > nul 2>&1
-REM 正在从 origin/dev 拉取代码到本地 deploy 分支...
+:: 正在从 origin/dev 拉取代码到本地 deploy 分支...
 git pull origin dev > nul 2>&1
-REM 正在推送到 origin/deploy 分支和 origin/dev 分支...
+:: 正在推送到 origin/deploy 分支和 origin/dev 分支...
 git push origin deploy dev > nul 2>&1
-REM 正在切换回 dev 分支...
+:: 正在切换回 dev 分支...
 git checkout dev > nul 2>&1
-REM 正在拉取 origin/master 到本地 dev 分支...
+:: 正在拉取 origin/master 到本地 dev 分支...
 git pull origin master > nul 2>&1
 echo √增加成功
 
