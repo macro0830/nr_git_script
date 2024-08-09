@@ -151,7 +151,7 @@ if %dev_exists% neq 0 (
         REM 本地不存在dev和deploy分支，只更新master分支
         git checkout master >nul 2>&1
         git pull origin master >nul 2>&1
-        git add . >nul 2>&1
+        REM 只提交已暂存的文件
         git commit -m "%commitMessage%" > nul 2>&1
         git push origin master > nul 2>&1
         for /f %%i in ('git diff --name-only HEAD@{1} HEAD ^| find /c /v ""') do set "updatedFiles=%%i"
